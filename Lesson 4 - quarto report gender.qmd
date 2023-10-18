@@ -1,0 +1,93 @@
+---
+title: "Gender for Ascend EPIC Cohort"
+author: "Olivia Noel"
+format: html
+warning: false
+echo: false
+message: false
+---
+
+```{r packages}
+# Load Packages ----
+library(tidyverse)
+library(janitor)
+```
+
+```{r data}
+# Import Data ----
+
+team_mem_dem <- read_csv("SF_Team Member_2023_09_20_scrubbed.csv") |> 
+  clean_names()
+view(team_mem_dem)
+
+# Race/Ethnicity Cleaning ----
+
+#exclusive race/ethnicity categories
+# 1 = White, Non-Hispanic
+# 2 = Asian, Non-Hispanic
+# 3 = Black/African American, Non-Hispanic
+# 4 = Hispanic
+# 5 = Multiracial/Another Race
+
+team_mem_dem <- team_mem_dem |> 
+  mutate(race_all = case_when(
+    hispanic_latino_or_spanish_origin != "Yes" & race_american_indian_or_alaska_native == 0 & race_asian == 0 & race_black_or_african_american == 0 & race_hawaiian_or_other_pac_islander == 0 & race_other == 0 & race_white == 1 ~ 1,
+    hispanic_latino_or_spanish_origin != "Yes" & race_american_indian_or_alaska_native == 0 & race_asian == 1 & race_black_or_african_american == 0 & race_hawaiian_or_other_pac_islander == 0 & race_other == 0 & race_white == 0 ~ 2,
+    hispanic_latino_or_spanish_origin != "Yes" & race_american_indian_or_alaska_native == 0 & race_asian == 0 & race_black_or_african_american == 1 & race_hawaiian_or_other_pac_islander == 0 & race_other == 0 & race_white == 0 ~ 3,
+    hispanic_latino_or_spanish_origin == "Yes" & (race_american_indian_or_alaska_native == 0 & race_asian == 0 & race_black_or_african_american == 0 & race_hawaiian_or_other_pac_islander == 0) & ((race_other == 1 & race_white == 0) | (race_other == 0 & race_white == 1)) ~ 4,
+    (race_american_indian_or_alaska_native + race_asian + race_black_or_african_american + race_hawaiian_or_other_pac_islander + race_other + race_white > 1) | (hispanic_latino_or_spanish_origin == "Yes" & race_american_indian_or_alaska_native == 1) | (hispanic_latino_or_spanish_origin == "Yes" & race_asian == 1) | (hispanic_latino_or_spanish_origin == "Yes" & race_black_or_african_american == 1) | (hispanic_latino_or_spanish_origin == "Yes" & race_hawaiian_or_other_pac_islander == 1) | race_american_indian_or_alaska_native == 1 | race_hawaiian_or_other_pac_islander == 1 | (race_other == 1 & hispanic_latino_or_spanish_origin != "Yes") ~ 5,
+    race_american_indian_or_alaska_native == 0 & race_asian == 0 & race_black_or_african_american == 0 & race_hawaiian_or_other_pac_islander == 0 & race_other == 0 & race_white == 0 & (hispanic_latino_or_spanish_origin == "Prefer not to answer") ~ -99
+  ))
+
+#problem  w/ -99 also if Hispanic == blank; calculations need refinement 
+
+# gen URM ----
+team_mem_dem <- team_mem_dem |> 
+  mutate(urm = case_when(
+    race_american_indian_or_alaska_native == 1 | race_black_or_african_american == 1 | race_hawaiian_or_other_pac_islander == 1 | race_other == 1 | hispanic_latino_or_spanish_origin == "Yes" ~ 1,
+    hispanic_latino_or_spanish_origin != "Yes" & race_american_indian_or_alaska_native == 0 & race_black_or_african_american == 0 & race_hawaiian_or_other_pac_islander == 0 & race_other == 0 & (race_white == 1 | race_asian == 1) ~ 0,
+  ))
+
+# problem w/ -99 -- need calculation
+
+# gen URG ----
+team_mem_dem <- team_mem_dem |> 
+  mutate(urg = case_when(
+    urm == 1 | gender == "Female" ~ 1,
+    urm == 0 & gender != "Female" ~ 0
+  ))
+#problem - still needs missing calculations  
+
+
+# bar for Ascend cohort ----
+team_mem_dem_AscendEPIC <- team_mem_dem |> 
+  filter(program_cohort_program_cohort_name == "Ascend Energy & Mobility Accelerator 2023, powered by VentureWell and EPIC") |> 
+  filter(!is.na(gender)) |> 
+  arrange(gender) |> 
+  group_by(role) |> 
+  count(gender)
+```
+
+
+## Introduction
+
+testy test
+
+## Gender
+
+descrption + context blah blah blah. Recruitment strategies were **awesome**.
+
+```{r gender bars}
+ggplot(data = team_mem_dem_AscendEPIC,
+                       mapping = aes(x = gender,
+                                     y = n,
+                                     fill = gender)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Gender for Team Leads and Team Members for Ascend EPIC Cohort",
+       y = NULL,
+       x = NULL) +
+  theme_minimal() +
+  facet_grid(cols = vars(role))
+```
+
+
